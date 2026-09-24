@@ -25,16 +25,23 @@ namespace CAP.AutomatedWorkPriorities
             Listing_Standard list = new Listing_Standard();
             list.Begin(inRect);
             list.CheckboxLabeled("Enabled", ref rule.enabled);
+            if (list.ButtonTextLabeled("Who", WhoLabel(rule.who)))
+            {
+                Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("AWP_WhoAll".Translate(), () => rule.who = RuleWho.All),
+                    new FloatMenuOption("AWP_WhoColonist".Translate(), () => rule.who = RuleWho.Colonist),
+                    new FloatMenuOption("AWP_WhoSlave".Translate(), () => rule.who = RuleWho.Slave)
+                }));
+            }
             if (list.ButtonTextLabeled("Job", rule.JobLabel()))
             {
                 var listDefs = new List<Def>();
                 List<WorkTypeDef> all = DefDatabase<WorkTypeDef>.AllDefsListForReading;
                 for (int i = 0; i < all.Count; i++)
                     listDefs.Add(all[i]);
-                Find.WindowStack.Add(new Dialog_DefPicker("Job", listDefs, def => rule.workTypeDefName = def.defName));
+                Find.WindowStack.Add(new Dialog_DefPicker("Job", listDefs, def => rule.workTypeDefName = def.defName, () => rule.workTypeDefName = "*"));
             }
-            if (list.ButtonText("AWP_AllJobs".Translate()))
-                rule.workTypeDefName = "*";
             if (list.ButtonTextLabeled("Condition", rule.condition.ToString()))
             {
                 var opts = new List<FloatMenuOption>();
@@ -94,6 +101,13 @@ namespace CAP.AutomatedWorkPriorities
             if (list.ButtonText("OK"))
                 Close();
             list.End();
+        }
+
+        private static string WhoLabel(RuleWho who)
+        {
+            if (who == RuleWho.Colonist) return "AWP_WhoColonist".Translate();
+            if (who == RuleWho.Slave) return "AWP_WhoSlave".Translate();
+            return "AWP_WhoAll".Translate();
         }
 
         private string TraitButtonLabel()

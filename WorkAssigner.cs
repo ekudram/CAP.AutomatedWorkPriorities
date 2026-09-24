@@ -55,18 +55,8 @@ namespace CAP.AutomatedWorkPriorities
                 return result;
 
             List<Pawn> colonists = new List<Pawn>();
-            List<Pawn> all = map.mapPawns.FreeColonistsSpawned;
-            for (int i = 0; i < all.Count; i++)
-            {
-                Pawn p = all[i];
-                if (p == null || p.Dead || p.workSettings == null)
-                    continue;
-                if (p.DevelopmentalStage == DevelopmentalStage.Baby || p.DevelopmentalStage == DevelopmentalStage.Newborn)
-                    continue;
-                if (data.IsPawnExcluded(p))
-                    continue;
-                colonists.Add(p);
-            }
+            AddAssignable(colonists, map.mapPawns.FreeColonistsSpawned, data);
+            AddAssignable(colonists, map.mapPawns.SlavesOfColonySpawned, data);
 
             if (apply)
                 IsRefreshing = true;
@@ -89,6 +79,24 @@ namespace CAP.AutomatedWorkPriorities
             return result;
         }
 
+        private static void AddAssignable(List<Pawn> dest, IList<Pawn> src, GameComponent_AWP data)
+        {
+            if (src == null) return;
+            for (int i = 0; i < src.Count; i++)
+            {
+                Pawn p = src[i];
+                if (p == null || p.Dead || p.workSettings == null)
+                    continue;
+                if (p.DevelopmentalStage == DevelopmentalStage.Baby || p.DevelopmentalStage == DevelopmentalStage.Newborn)
+                    continue;
+                if (data.IsPawnExcluded(p))
+                    continue;
+                if (dest.Contains(p))
+                    continue;
+                dest.Add(p);
+            }
+        }
+
         private static void AssignOne(GameComponent_AWP data, WorkTypeDef work, List<Pawn> colonists, bool apply, List<PreviewRow> rows)
         {
             WorkTypeConfig cfg = data.GetJob(work);
@@ -103,8 +111,6 @@ namespace CAP.AutomatedWorkPriorities
                 if (p.WorkTypeIsDisabled(work) || p.WorkTagIsDisabled(work.workTags))
                     continue;
                 if (data.IsJobExcluded(p, work))
-                    continue;
-                if (data.IsPinned(p, work))
                     continue;
                 if (IsHardExclude(data, p, work))
                     banned.Add(p);

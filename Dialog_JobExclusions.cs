@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using RimWorld;
 using UnityEngine;
 using Verse;
 
@@ -26,6 +27,15 @@ namespace CAP.AutomatedWorkPriorities
             if (data == null || Find.CurrentMap == null)
                 return;
             List<Pawn> pawns = new List<Pawn>(Find.CurrentMap.mapPawns.FreeColonistsSpawned);
+            List<Pawn> slaves = Find.CurrentMap.mapPawns.SlavesOfColonySpawned;
+            if (slaves != null)
+            {
+                for (int s = 0; s < slaves.Count; s++)
+                {
+                    if (slaves[s] != null && !pawns.Contains(slaves[s]))
+                        pawns.Add(slaves[s]);
+                }
+            }
             pawns.Sort((a, b) => string.Compare(a.LabelShort, b.LabelShort, StringComparison.OrdinalIgnoreCase));
             Rect view = new Rect(0f, 0f, inRect.width - 20f, pawns.Count * 28f);
             Widgets.BeginScrollView(new Rect(0f, 32f, inRect.width, inRect.height - 32f), ref scroll, view);

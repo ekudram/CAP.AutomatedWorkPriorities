@@ -3,6 +3,13 @@ using Verse;
 
 namespace CAP.AutomatedWorkPriorities
 {
+    public enum RuleWho
+    {
+        All,
+        Colonist,
+        Slave
+    }
+
     public enum RuleActionKind
     {
         Ban,
@@ -39,6 +46,7 @@ namespace CAP.AutomatedWorkPriorities
         public float capacityMax = 0.5f;
         public RuleActionKind action = RuleActionKind.Set;
         public int setPriority;
+        public RuleWho who = RuleWho.All;
 
         public void ExposeData()
         {
@@ -52,6 +60,7 @@ namespace CAP.AutomatedWorkPriorities
             Scribe_Values.Look(ref capacityMax, "capacityMax", 0.5f);
             Scribe_Values.Look(ref action, "action", RuleActionKind.Set);
             Scribe_Values.Look(ref setPriority, "setPriority");
+            Scribe_Values.Look(ref who, "who", RuleWho.All);
         }
 
         public AssignmentRule Clone()
@@ -67,7 +76,8 @@ namespace CAP.AutomatedWorkPriorities
                 skillMax = skillMax,
                 capacityMax = capacityMax,
                 action = action,
-                setPriority = setPriority
+                setPriority = setPriority,
+                who = who
             };
         }
 
@@ -79,9 +89,18 @@ namespace CAP.AutomatedWorkPriorities
             return work.defName == workTypeDefName;
         }
 
+        public bool AppliesToPawn(Pawn pawn)
+        {
+            if (pawn == null) return false;
+            if (who == RuleWho.All) return true;
+            bool slave = pawn.IsSlaveOfColony;
+            if (who == RuleWho.Slave) return slave;
+            return pawn.IsColonist && !slave;
+        }
+
         public bool IsHardExclude(Pawn pawn, WorkTypeDef work)
         {
-            if (!enabled || pawn == null || !AppliesTo(work))
+            if (!enabled || pawn == null || !AppliesTo(work) || !AppliesToPawn(pawn))
                 return false;
             bool cond = ConditionHolds(pawn, work);
             if (action == RuleActionKind.Ban)
@@ -93,7 +112,7 @@ namespace CAP.AutomatedWorkPriorities
 
         public bool Matches(Pawn pawn, WorkTypeDef work)
         {
-            if (!enabled || pawn == null || !AppliesTo(work))
+            if (!enabled || pawn == null || !AppliesTo(work) || !AppliesToPawn(pawn))
                 return false;
             return ConditionHolds(pawn, work);
         }
@@ -209,7 +228,10 @@ namespace CAP.AutomatedWorkPriorities
                 case RuleActionKind.Require: act = "Require"; break;
                 default: act = "Set P" + setPriority; break;
             }
-            return (enabled ? "" : "[off] ") + act + " " + job + " if " + cond;
+            string whoLabel = "";
+            if (who == RuleWho.Colonist) whoLabel = " [" + "AWP_WhoColonist".Translate() + "]";
+            else if (who == RuleWho.Slave) whoLabel = " [" + "AWP_WhoSlave".Translate() + "]";
+            return (enabled ? "" : "[off] ") + act + " " + job + whoLabel + " if " + cond;
         }
 
         public bool TargetsAllJobs()
@@ -222,8 +244,8 @@ namespace CAP.AutomatedWorkPriorities
             if (TargetsAllJobs())
                 return "AWP_AllJobs".Translate();
             WorkTypeDef def = DefDatabase<WorkTypeDef>.GetNamedSilentFail(workTypeDefName);
-            if (def != null && !def.labelShort.NullOrEmpty())
-                return def.labelShort.CapitalizeFirst();
+            if (def != null)
+                return DefLabel.OfWork(def);
             return workTypeDefName;
         }
     }

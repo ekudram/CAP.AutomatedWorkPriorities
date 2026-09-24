@@ -17,8 +17,19 @@ namespace CAP.AutomatedWorkPriorities
         private WorkTier filterTier = WorkTier.AlwaysHigh;
         private string importName = "import.xml";
         private string pawnSearch = "";
+        private string jobSearch = "";
+        private string ruleJobSearch = "";
 
-        public override Vector2 InitialSize => new Vector2(1120f, 680f);
+        public override Vector2 InitialSize
+        {
+            get
+            {
+                AWPModSettings s = AWPMod.Settings;
+                if (s != null && s.winW >= 640f && s.winH >= 400f)
+                    return new Vector2(s.winW, s.winH);
+                return new Vector2(780f, 630f);
+            }
+        }
 
         public Dialog_AWPSettings()
         {
@@ -27,6 +38,42 @@ namespace CAP.AutomatedWorkPriorities
             draggable = true;
             resizeable = true;
             closeOnClickedOutside = false;
+            preventCameraMotion = false;
+        }
+
+        protected override void SetInitialSizeAndPosition()
+        {
+            Vector2 size = InitialSize;
+            AWPModSettings s = AWPMod.Settings;
+            float x;
+            float y;
+            if (s != null && s.winX >= 0f && s.winY >= 0f)
+            {
+                x = s.winX;
+                y = s.winY;
+            }
+            else
+            {
+                x = (UI.screenWidth - size.x) / 2f;
+                y = (UI.screenHeight - size.y) / 2f;
+            }
+            Rect r = new Rect(x, y, size.x, size.y);
+            windowRect = s != null ? s.ClampToScreen(r) : r;
+        }
+
+        public override void PreClose()
+        {
+            AWPModSettings s = AWPMod.Settings;
+            if (s != null)
+            {
+                Rect r = s.ClampToScreen(windowRect);
+                s.winX = r.x;
+                s.winY = r.y;
+                s.winW = r.width;
+                s.winH = r.height;
+                s.Write();
+            }
+            base.PreClose();
         }
 
         public override void PostOpen()
@@ -36,6 +83,8 @@ namespace CAP.AutomatedWorkPriorities
             if (data != null)
                 data.RebuildJobList();
         }
+
+
 
         public override void DoWindowContents(Rect inRect)
         {
@@ -47,13 +96,16 @@ namespace CAP.AutomatedWorkPriorities
             float y = 36f;
             if (data != null)
             {
-                float col = inRect.width / 3f;
-                Widgets.CheckboxLabeled(new Rect(0f, y, col - 8f, 24f), "AWP_EnableMod".Translate(), ref data.enabled);
-                Widgets.CheckboxLabeled(new Rect(col, y, col - 8f, 24f), "AWP_DailyRefresh".Translate(), ref data.dailyRefresh);
-                Rect emRect = new Rect(col * 2f, y, col - 8f, 24f);
-                Widgets.CheckboxLabeled(emRect, "AWP_ForceEmergency".Translate(), ref data.forceEmergencyPriorities);
-                TooltipHandler.TipRegion(emRect, "AWP_ForceEmergencyTip".Translate());
-                y += 22f;
+                float bw = 200f;
+                Rect autoRect = new Rect(0f, y, bw, 28f);
+                bool autoOn = data.enabled;
+                if (AWPUi.Toggle(autoRect, autoOn, autoOn ? "AWP_ModOn".Translate() : "AWP_ModOff".Translate(), "AWP_TipAuto".Translate()))
+                    data.enabled = !data.enabled;
+                Rect emRect = new Rect(bw + 12f, y, bw, 28f);
+                bool emOn = data.forceEmergencyPriorities;
+                if (AWPUi.Toggle(emRect, emOn, emOn ? "AWP_EmergencyOn".Translate() : "AWP_EmergencyOff".Translate(), "AWP_ForceEmergencyTip".Translate()))
+                    data.forceEmergencyPriorities = !data.forceEmergencyPriorities;
+                y += 32f;
                 Widgets.Label(new Rect(0f, y, inRect.width, 22f), "AWP_LastRefresh".Translate(data.lastRefreshChanged, data.lastRefreshLog ?? ""));
             }
             else
@@ -83,15 +135,14 @@ namespace CAP.AutomatedWorkPriorities
 
         private void DrawJobs(Rect rect, GameComponent_AWP data)
         {
-            float btnW = (rect.width - 200f) / 3f;
+            float btnW = (rect.width - 8f) / 3f;
             if (Widgets.ButtonText(new Rect(rect.x, rect.y, btnW, 24f), WorkTierCatalog.TierLabel(WorkTier.AlwaysHigh)))
                 filterTier = WorkTier.AlwaysHigh;
             if (Widgets.ButtonText(new Rect(rect.x + btnW + 4f, rect.y, btnW, 24f), WorkTierCatalog.TierLabel(WorkTier.Passion)))
                 filterTier = WorkTier.Passion;
             if (Widgets.ButtonText(new Rect(rect.x + (btnW + 4f) * 2f, rect.y, btnW, 24f), WorkTierCatalog.TierLabel(WorkTier.Everyone)))
                 filterTier = WorkTier.Everyone;
-            if (data != null && Widgets.ButtonText(new Rect(rect.xMax - 170f, rect.y, 165f, 24f), "AWP_ClearPins".Translate(data.pinnedKeys.Count)))
-                data.pinnedKeys.Clear();
+            jobSearch = Widgets.TextField(new Rect(rect.x, rect.y + 28f, 280f, 24f), jobSearch ?? "");
 
             const float xJob = 0f;
             const float wJob = 130f;
@@ -111,7 +162,7 @@ namespace CAP.AutomatedWorkPriorities
             float wRules = rect.width - xRules - 24f;
             if (wRules < 80f) wRules = 80f;
 
-            float headerY = rect.y + 28f;
+            float headerY = rect.y + 56f;
             GUI.color = new Color(1f, 1f, 1f, 0.5f);
             Widgets.DrawLineHorizontal(rect.x, headerY + 22f, rect.width - 16f);
             GUI.color = Color.white;
@@ -132,19 +183,22 @@ namespace CAP.AutomatedWorkPriorities
             List<WorkTypeDef> all = DefDatabase<WorkTypeDef>.AllDefsListForReading;
             for (int i = 0; i < all.Count; i++)
             {
-                if (WorkTierCatalog.GetTier(all[i]) == filterTier)
-                    defs.Add(all[i]);
+                if (WorkTierCatalog.GetTier(all[i]) != filterTier)
+                    continue;
+                if (!DefLabel.WorkMatches(all[i], jobSearch == null ? "" : jobSearch.Trim()))
+                    continue;
+                defs.Add(all[i]);
             }
             defs.Sort((a, b) => string.Compare(a.labelShort, b.labelShort, StringComparison.OrdinalIgnoreCase));
 
             const float rowH = 52f;
             Rect view = new Rect(0f, 0f, rect.width - 20f, defs.Count * rowH + 8f);
-            Widgets.BeginScrollView(new Rect(rect.x, rect.y + 54f, rect.width, rect.height - 54f), ref scroll, view);
+            Widgets.BeginScrollView(new Rect(rect.x, rect.y + 82f, rect.width, rect.height - 82f), ref scroll, view);
             float y = 0f;
             for (int i = 0; i < defs.Count; i++)
             {
                 WorkTypeDef def = defs[i];
-                Widgets.Label(new Rect(xJob, y, wJob, 24f), def.labelShort.CapitalizeFirst());
+                Widgets.Label(new Rect(xJob, y, wJob, 24f), DefLabel.OfWork(def));
                 if (data != null)
                 {
                     WorkTypeConfig cfg = data.GetJob(def);
@@ -175,42 +229,14 @@ namespace CAP.AutomatedWorkPriorities
                         Find.WindowStack.Add(new Dialog_JobExclusions(def));
                     cfg.passionWeight = Widgets.HorizontalSlider(new Rect(xFill, y + 26f, 150f, 22f), cfg.passionWeight, 0f, 3f);
                     Widgets.Label(new Rect(xFill + 154f, y + 26f, 70f, 22f), cfg.passionWeight.ToString("0.0") + "x");
-                    Rect rulesRect = new Rect(xRules, y, wRules, 48f);
-                    string rulesText;
-                    string rulesTip;
-                    JobRulesSummary(data, def, out rulesText, out rulesTip);
-                    Text.Font = GameFont.Tiny;
-                    Widgets.Label(rulesRect, rulesText);
-                    Text.Font = GameFont.Small;
-                    TooltipHandler.TipRegion(rulesRect, rulesTip);
+                    List<AssignmentRule> jobRules = Dialog_JobRules.Collect(data, def);
+                    string rulesText = jobRules.Count == 0 ? "—" : (jobRules.Count == 1 ? "AWP_OneRule".Translate().ToString() : "AWP_NRules".Translate(jobRules.Count).ToString());
+                    if (Widgets.ButtonText(new Rect(xRules, y, wRules > 90f ? 90f : wRules, 24f), rulesText))
+                        Find.WindowStack.Add(new Dialog_JobRules(def));
                 }
                 y += rowH;
             }
             Widgets.EndScrollView();
-        }
-
-        private static void JobRulesSummary(GameComponent_AWP data, WorkTypeDef def, out string text, out string tip)
-        {
-            text = "—";
-            tip = "AWP_NoRulesForJob".Translate();
-            if (data == null || data.rules == null || def == null)
-                return;
-            int n = 0;
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            for (int i = 0; i < data.rules.Count; i++)
-            {
-                AssignmentRule r = data.rules[i];
-                if (r == null || !r.enabled || !r.AppliesTo(def))
-                    continue;
-                n++;
-                if (sb.Length > 0)
-                    sb.AppendLine();
-                sb.Append(r.Summary());
-            }
-            if (n == 0)
-                return;
-            text = n == 1 ? "AWP_OneRule".Translate() : "AWP_NRules".Translate(n);
-            tip = sb.ToString();
         }
 
         private void DrawRules(Rect rect, GameComponent_AWP data)
@@ -233,8 +259,7 @@ namespace CAP.AutomatedWorkPriorities
                 data.rules.Add(r);
                 Find.WindowStack.Add(new Dialog_RuleEditor(r));
             }
-            if (Widgets.ButtonText(new Rect(rect.x + 150f, rect.y, 140f, 28f), "AWP_TabPreview".Translate()))
-                Find.WindowStack.Add(new Dialog_Preview());
+            ruleJobSearch = Widgets.TextField(new Rect(rect.x + 150f, rect.y, 280f, 28f), ruleJobSearch ?? "");
 
             List<string> groupKeys = new List<string>();
             Dictionary<string, List<AssignmentRule>> groups = new Dictionary<string, List<AssignmentRule>>();
@@ -259,30 +284,36 @@ namespace CAP.AutomatedWorkPriorities
 
             List<WorkTypeDef> ordered = new List<WorkTypeDef>(DefDatabase<WorkTypeDef>.AllDefsListForReading);
             ordered.Sort((a, b) => b.naturalPriority.CompareTo(a.naturalPriority));
+            string rf = ruleJobSearch == null ? "" : ruleJobSearch.Trim();
 
             float contentH = 8f;
-            if (allJobs.Count > 0)
+            bool showAllGroup = allJobs.Count > 0 && DefLabel.AllJobsMatches(rf);
+            if (showAllGroup)
                 contentH += 26f + allJobs.Count * 32f;
             for (int i = 0; i < ordered.Count; i++)
             {
                 List<AssignmentRule> list;
-                if (groups.TryGetValue(ordered[i].defName, out list) && list.Count > 0)
-                    contentH += 26f + list.Count * 32f;
+                if (!groups.TryGetValue(ordered[i].defName, out list) || list.Count == 0)
+                    continue;
+                if (!DefLabel.WorkMatches(ordered[i], rf))
+                    continue;
+                contentH += 26f + list.Count * 32f;
             }
 
             Rect view = new Rect(0f, 0f, rect.width - 20f, contentH);
             Widgets.BeginScrollView(new Rect(rect.x, rect.y + 34f, rect.width, rect.height - 34f), ref scroll, view);
             float y = 0f;
             AssignmentRule toDelete = null;
-            if (allJobs.Count > 0)
+            if (showAllGroup)
                 DrawRuleGroup(view.width, ref y, "AWP_AllJobs".Translate(), allJobs, ref toDelete);
             for (int i = 0; i < ordered.Count; i++)
             {
                 List<AssignmentRule> list;
                 if (!groups.TryGetValue(ordered[i].defName, out list) || list.Count == 0)
                     continue;
-                string title = ordered[i].labelShort.CapitalizeFirst();
-                DrawRuleGroup(view.width, ref y, title, list, ref toDelete);
+                if (!DefLabel.WorkMatches(ordered[i], rf))
+                    continue;
+                DrawRuleGroup(view.width, ref y, DefLabel.OfWork(ordered[i]), list, ref toDelete);
             }
             Widgets.EndScrollView();
             if (toDelete != null)
@@ -371,12 +402,19 @@ namespace CAP.AutomatedWorkPriorities
                 Widgets.Label(rect, "AWP_NoGame".Translate());
                 return;
             }
-            if (Widgets.ButtonText(new Rect(rect.x, rect.y, 180f, 26f), "AWP_ClearPins".Translate(data.pinnedKeys.Count)))
-                data.pinnedKeys.Clear();
-            pawnSearch = Widgets.TextField(new Rect(rect.x + 190f, rect.y, 280f, 26f), pawnSearch ?? "");
+            pawnSearch = Widgets.TextField(new Rect(rect.x, rect.y, 280f, 26f), pawnSearch ?? "");
 
             List<Pawn> pawns = new List<Pawn>();
-            List<Pawn> all = Find.CurrentMap.mapPawns.FreeColonistsSpawned;
+            List<Pawn> all = new List<Pawn>(Find.CurrentMap.mapPawns.FreeColonistsSpawned);
+            List<Pawn> slaves = Find.CurrentMap.mapPawns.SlavesOfColonySpawned;
+            if (slaves != null)
+            {
+                for (int s = 0; s < slaves.Count; s++)
+                {
+                    if (slaves[s] != null && !all.Contains(slaves[s]))
+                        all.Add(slaves[s]);
+                }
+            }
             string f = pawnSearch == null ? "" : pawnSearch.Trim();
             for (int i = 0; i < all.Count; i++)
             {
@@ -423,8 +461,10 @@ namespace CAP.AutomatedWorkPriorities
 
         private void DrawPreviewLog(Rect rect, GameComponent_AWP data)
         {
-            if (Widgets.ButtonText(new Rect(rect.x, rect.y, 180f, 28f), "AWP_OpenPreview".Translate()))
-                Find.WindowStack.Add(new Dialog_Preview());
+            Rect btn = new Rect(rect.x, rect.y, 180f, 28f);
+            if (Widgets.ButtonText(btn, "AWP_Refresh".Translate()))
+                WorkAssigner.Refresh();
+            TooltipHandler.TipRegion(btn, "AWP_TipRefresh".Translate());
             string log = data != null ? data.lastRefreshLog : "";
             Widgets.TextArea(new Rect(rect.x, rect.y + 34f, rect.width, rect.height - 34f), log ?? "", true);
         }

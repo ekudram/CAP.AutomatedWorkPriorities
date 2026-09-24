@@ -12,6 +12,7 @@ namespace CAP.AutomatedWorkPriorities
         public float capacityMax = 1f;
         public RuleActionKind action = RuleActionKind.Ban;
         public int setPriority;
+        public RuleWho who = RuleWho.All;
         public bool defaultEnabled = true;
 
         public AssignmentRule ToRule()
@@ -27,7 +28,8 @@ namespace CAP.AutomatedWorkPriorities
                 skillMax = skillMax,
                 capacityMax = capacityMax,
                 action = action,
-                setPriority = setPriority
+                setPriority = setPriority,
+                who = who
             };
         }
     }

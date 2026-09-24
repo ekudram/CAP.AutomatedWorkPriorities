@@ -7,7 +7,6 @@ namespace CAP.AutomatedWorkPriorities
     public class GameComponent_AWP : GameComponent
     {
         public bool enabled = true;
-        public bool dailyRefresh = true;
         public bool forceEmergencyPriorities = true;
         public int lastCheckDay = -1;
         public int lastRefreshTick = -1;
@@ -15,7 +14,6 @@ namespace CAP.AutomatedWorkPriorities
         public string lastAppliedPresetId = "normal";
         public string lastRefreshLog = "";
         public List<string> excludedPawnIds = new List<string>();
-        public List<string> pinnedKeys = new List<string>();
         public Dictionary<string, WorkTypeConfig> jobSettings = new Dictionary<string, WorkTypeConfig>();
         public List<string> jobExcludeKeys = new List<string>();
         public Dictionary<string, int> tierOverrides = new Dictionary<string, int>();
@@ -38,7 +36,6 @@ namespace CAP.AutomatedWorkPriorities
         public override void ExposeData()
         {
             Scribe_Values.Look(ref enabled, "enabled", true);
-            Scribe_Values.Look(ref dailyRefresh, "dailyRefresh", true);
             Scribe_Values.Look(ref forceEmergencyPriorities, "forceEmergencyPriorities", true);
             Scribe_Values.Look(ref lastCheckDay, "lastCheckDay", -1);
             Scribe_Values.Look(ref lastRefreshTick, "lastRefreshTick", -1);
@@ -46,13 +43,11 @@ namespace CAP.AutomatedWorkPriorities
             Scribe_Values.Look(ref lastAppliedPresetId, "lastAppliedPresetId", "normal");
             Scribe_Values.Look(ref lastRefreshLog, "lastRefreshLog", "");
             Scribe_Collections.Look(ref excludedPawnIds, "excludedPawnIds", LookMode.Value);
-            Scribe_Collections.Look(ref pinnedKeys, "pinnedKeys", LookMode.Value);
             Scribe_Collections.Look(ref jobSettings, "jobSettings", LookMode.Value, LookMode.Deep);
             Scribe_Collections.Look(ref jobExcludeKeys, "jobExcludeKeys", LookMode.Value);
             Scribe_Collections.Look(ref tierOverrides, "tierOverrides", LookMode.Value, LookMode.Value);
             Scribe_Collections.Look(ref rules, "rules", LookMode.Deep);
             if (excludedPawnIds == null) excludedPawnIds = new List<string>();
-            if (pinnedKeys == null) pinnedKeys = new List<string>();
             if (jobSettings == null) jobSettings = new Dictionary<string, WorkTypeConfig>();
             if (jobExcludeKeys == null) jobExcludeKeys = new List<string>();
             if (tierOverrides == null) tierOverrides = new Dictionary<string, int>();
@@ -110,7 +105,7 @@ namespace CAP.AutomatedWorkPriorities
 
         public override void GameComponentTick()
         {
-            if (!enabled || !dailyRefresh)
+            if (!enabled)
                 return;
             if (Find.TickManager.TicksGame % 2500 != 0)
                 return;
@@ -174,27 +169,5 @@ namespace CAP.AutomatedWorkPriorities
                 jobExcludeKeys.Remove(key);
         }
 
-        public static string PinKey(Pawn pawn, WorkTypeDef work)
-        {
-            return pawn.ThingID + "|" + work.defName;
-        }
-
-        public bool IsPinned(Pawn pawn, WorkTypeDef work)
-        {
-            return pawn != null && work != null && pinnedKeys.Contains(PinKey(pawn, work));
-        }
-
-        public void SetPinned(Pawn pawn, WorkTypeDef work, bool pin)
-        {
-            if (pawn == null || work == null) return;
-            string key = PinKey(pawn, work);
-            if (pin)
-            {
-                if (!pinnedKeys.Contains(key))
-                    pinnedKeys.Add(key);
-            }
-            else
-                pinnedKeys.Remove(key);
-        }
     }
 }

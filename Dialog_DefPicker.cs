@@ -10,16 +10,18 @@ namespace CAP.AutomatedWorkPriorities
         private readonly string title;
         private readonly List<Def> defs;
         private readonly Action<Def> onPicked;
+        private readonly Action onAllJobs;
         private string filter = "";
         private Vector2 scroll;
 
         public override Vector2 InitialSize => new Vector2(420f, 520f);
 
-        public Dialog_DefPicker(string title, List<Def> defs, Action<Def> onPicked)
+        public Dialog_DefPicker(string title, List<Def> defs, Action<Def> onPicked, Action onAllJobs = null)
         {
             this.title = title;
             this.defs = defs ?? new List<Def>();
             this.onPicked = onPicked;
+            this.onAllJobs = onAllJobs;
             doCloseX = true;
             draggable = true;
             absorbInputAroundWindow = true;
@@ -38,21 +40,39 @@ namespace CAP.AutomatedWorkPriorities
             {
                 Def d = defs[i];
                 if (d == null) continue;
-                string label = DefLabel.Of(d);
-                if (f.Length == 0
-                    || label.IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0
-                    || d.defName.IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0)
+                WorkTypeDef work = d as WorkTypeDef;
+                bool hit;
+                if (work != null)
+                    hit = DefLabel.WorkMatches(work, f);
+                else
+                {
+                    string label = DefLabel.Of(d);
+                    hit = f.Length == 0
+                        || label.IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0
+                        || d.defName.IndexOf(f, StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+                if (hit)
                     shown.Add(d);
             }
             shown.Sort((a, b) => string.Compare(DefLabel.Of(a), DefLabel.Of(b), StringComparison.OrdinalIgnoreCase));
 
-            Rect view = new Rect(0f, 0f, inRect.width - 20f, shown.Count * 28f);
+            bool showAll = onAllJobs != null && DefLabel.AllJobsMatches(f);
+            Rect view = new Rect(0f, 0f, inRect.width - 20f, (shown.Count + (showAll ? 1 : 0)) * 28f);
             Widgets.BeginScrollView(new Rect(0f, 68f, inRect.width, inRect.height - 68f), ref scroll, view);
             float y = 0f;
+            if (showAll)
+            {
+                if (Widgets.ButtonText(new Rect(0f, y, view.width, 26f), "AWP_AllJobs".Translate()))
+                {
+                    onAllJobs();
+                    Close();
+                }
+                y += 28f;
+            }
             for (int i = 0; i < shown.Count; i++)
             {
                 Def d = shown[i];
-                if (Widgets.ButtonText(new Rect(0f, y, view.width, 26f), DefLabel.Of(d) + "  [" + d.defName + "]"))
+                if (Widgets.ButtonText(new Rect(0f, y, view.width, 26f), DefLabel.Of(d)))
                 {
                     onPicked?.Invoke(d);
                     Close();
