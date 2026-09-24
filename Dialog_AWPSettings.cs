@@ -142,7 +142,7 @@ namespace CAP.AutomatedWorkPriorities
                 filterTier = WorkTier.Passion;
             if (Widgets.ButtonText(new Rect(rect.x + (btnW + 4f) * 2f, rect.y, btnW, 24f), WorkTierCatalog.TierLabel(WorkTier.Everyone)))
                 filterTier = WorkTier.Everyone;
-            jobSearch = Widgets.TextField(new Rect(rect.x, rect.y + 28f, 280f, 24f), jobSearch ?? "");
+            AWPUi.SearchField(new Rect(rect.x, rect.y + 28f, 280f, 24f), ref jobSearch);
 
             const float xJob = 0f;
             const float wJob = 130f;
@@ -215,13 +215,17 @@ namespace CAP.AutomatedWorkPriorities
                         string buf = cfg.count.ToString();
                         Widgets.TextFieldNumeric(new Rect(xFill + 40f, y, 50f, 24f), ref cfg.count, ref buf, 0, 99);
                     }
-                    if (Widgets.ButtonText(new Rect(xPrio, y, wPrio, 24f), "P" + cfg.primaryPriority))
-                        cfg.primaryPriority = (cfg.primaryPriority + 1) % 5;
-                    if (Widgets.ButtonText(new Rect(xBack, y, wBack, 24f), "B" + cfg.backupPriority))
-                        cfg.backupPriority = (cfg.backupPriority + 1) % 5;
-                    if (Widgets.ButtonText(new Rect(xTier, y, wTier, 24f), WorkTierCatalog.Short(WorkTierCatalog.GetTier(def))))
+                    int pStep = AWPUi.ButtonStep(new Rect(xPrio, y, wPrio, 24f), "P" + cfg.primaryPriority, "AWP_TipPriority".Translate());
+                    if (pStep != 0)
+                        cfg.primaryPriority = AWPUi.WrapPriority(cfg.primaryPriority, pStep);
+                    int bStep = AWPUi.ButtonStep(new Rect(xBack, y, wBack, 24f), "B" + cfg.backupPriority, "AWP_TipBackup".Translate());
+                    if (bStep != 0)
+                        cfg.backupPriority = AWPUi.WrapPriority(cfg.backupPriority, bStep);
+                    WorkTier tierNow = WorkTierCatalog.GetTier(def);
+                    int tStep = AWPUi.ButtonStep(new Rect(xTier, y, wTier, 24f), WorkTierCatalog.Short(tierNow), "AWP_TipTier".Translate());
+                    if (tStep != 0)
                     {
-                        WorkTier next = WorkTierCatalog.Cycle(WorkTierCatalog.GetTier(def));
+                        WorkTier next = tStep > 0 ? WorkTierCatalog.Cycle(tierNow) : WorkTierCatalog.CyclePrev(tierNow);
                         data.tierOverrides[def.defName] = (int)next;
                         cfg.overrideTier = (int)next;
                     }
@@ -259,7 +263,7 @@ namespace CAP.AutomatedWorkPriorities
                 data.rules.Add(r);
                 Find.WindowStack.Add(new Dialog_RuleEditor(r));
             }
-            ruleJobSearch = Widgets.TextField(new Rect(rect.x + 150f, rect.y, 280f, 28f), ruleJobSearch ?? "");
+            AWPUi.SearchField(new Rect(rect.x + 150f, rect.y, 280f, 28f), ref ruleJobSearch);
 
             List<string> groupKeys = new List<string>();
             Dictionary<string, List<AssignmentRule>> groups = new Dictionary<string, List<AssignmentRule>>();
@@ -402,7 +406,7 @@ namespace CAP.AutomatedWorkPriorities
                 Widgets.Label(rect, "AWP_NoGame".Translate());
                 return;
             }
-            pawnSearch = Widgets.TextField(new Rect(rect.x, rect.y, 280f, 26f), pawnSearch ?? "");
+            AWPUi.SearchField(new Rect(rect.x, rect.y, 280f, 26f), ref pawnSearch);
 
             List<Pawn> pawns = new List<Pawn>();
             List<Pawn> all = new List<Pawn>(Find.CurrentMap.mapPawns.FreeColonistsSpawned);

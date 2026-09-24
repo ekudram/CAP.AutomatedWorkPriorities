@@ -32,7 +32,7 @@ namespace CAP.AutomatedWorkPriorities
             Text.Font = GameFont.Medium;
             Widgets.Label(new Rect(0f, 0f, inRect.width, 28f), title);
             Text.Font = GameFont.Small;
-            filter = Widgets.TextField(new Rect(0f, 32f, inRect.width, 28f), filter);
+            AWPUi.SearchField(new Rect(0f, 32f, inRect.width, 28f), ref filter);
 
             string f = filter == null ? "" : filter.Trim();
             List<Def> shown = new List<Def>();

@@ -79,6 +79,13 @@ namespace CAP.AutomatedWorkPriorities
             return (WorkTier)n;
         }
 
+        public static WorkTier CyclePrev(WorkTier current)
+        {
+            int n = (int)current - 1;
+            if (n < 1) n = 3;
+            return (WorkTier)n;
+        }
+
         public static string TierLabel(WorkTier tier)
         {
             switch (tier)

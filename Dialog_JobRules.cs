@@ -9,7 +9,7 @@ namespace CAP.AutomatedWorkPriorities
         private readonly WorkTypeDef work;
         private Vector2 scroll;
 
-        public override Vector2 InitialSize => new Vector2(640f, 420f);
+        public override Vector2 InitialSize => new Vector2(480f, 360f);
 
         public Dialog_JobRules(WorkTypeDef work)
         {
@@ -21,13 +21,19 @@ namespace CAP.AutomatedWorkPriorities
 
         public override void DoWindowContents(Rect inRect)
         {
+            const float editW = 70f;
+            const float delW = 80f;
+            const float gap = 4f;
+            float delX = inRect.width - delW;
+            float editX = delX - gap - editW;
+
             string title = work == null ? "AWP_AllJobs".Translate() : DefLabel.OfWork(work);
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(0f, 0f, inRect.width - 160f, 28f), title);
+            Widgets.Label(new Rect(0f, 0f, delX - 8f, 28f), title);
             Text.Font = GameFont.Small;
 
             GameComponent_AWP data = GameComponent_AWP.Get;
-            if (Widgets.ButtonText(new Rect(inRect.width - 150f, 0f, 150f, 28f), "AWP_AddRule".Translate()) && data != null)
+            if (Widgets.ButtonText(new Rect(delX, 0f, delW, 28f), "AWP_AddRule".Translate()) && data != null)
             {
                 var r = new AssignmentRule
                 {
@@ -47,18 +53,18 @@ namespace CAP.AutomatedWorkPriorities
                 return;
             }
 
-            Rect view = new Rect(0f, 0f, inRect.width - 20f, rules.Count * 32f + 8f);
+            Rect view = new Rect(0f, 0f, inRect.width, rules.Count * 32f + 8f);
             Widgets.BeginScrollView(new Rect(0f, 36f, inRect.width, inRect.height - 36f), ref scroll, view);
             float y = 0f;
             AssignmentRule toDelete = null;
             for (int i = 0; i < rules.Count; i++)
             {
                 AssignmentRule r = rules[i];
-                Widgets.CheckboxLabeled(new Rect(0f, y, 28f, 28f), "", ref r.enabled);
-                Widgets.Label(new Rect(32f, y, view.width - 170f, 28f), r.Summary());
-                if (Widgets.ButtonText(new Rect(view.width - 160f, y, 70f, 26f), "Edit"))
+                Widgets.CheckboxLabeled(new Rect(0f, y, 24f, 28f), "", ref r.enabled);
+                Widgets.Label(new Rect(28f, y, editX - 36f, 28f), r.Summary());
+                if (Widgets.ButtonText(new Rect(editX, y, editW, 26f), "Edit"))
                     Find.WindowStack.Add(new Dialog_RuleEditor(r));
-                if (Widgets.ButtonText(new Rect(view.width - 80f, y, 70f, 26f), "Delete"))
+                if (Widgets.ButtonText(new Rect(delX, y, delW, 26f), "Delete"))
                     toDelete = r;
                 y += 32f;
             }
